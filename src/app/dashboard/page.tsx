@@ -5,6 +5,7 @@ import { getHabits, getHabitCompletions } from '@/services/habitService';
 import { Database } from '@/types/database.types';
 import { supabase } from '@/lib/supabaseClient';
 import { CheckCircle2, Circle } from 'lucide-react';
+import { HabitsSkeleton } from '@/components/skeletons/habits-skeleton';
 
 type Habit = Database['public']['Tables']['habits']['Row'];
 type HabitCompletion = Database['public']['Tables']['habit_completion']['Row'];
@@ -53,11 +54,7 @@ export default function DashboardPage() {
   const completionRate = totalHabits ? Math.round((completedCount / totalHabits) * 100) : 0;
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
-      </div>
-    );
+    return <HabitsSkeleton />;
   }
 
   return (

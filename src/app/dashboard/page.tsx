@@ -28,20 +28,27 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadData() {
       try {
+        console.log('Starting to load user data...');
         // Get user info
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        console.log('Auth response:', { user, error: userError });
+        
         setEmail(user?.email ?? null);
         setUserId(user?.id ?? null);
 
         if (user?.id) {
+          console.log('User authenticated, loading habits...');
           // Load habits and completions for selected date
           const [habitsData, completionsData] = await Promise.all([
             getHabits(),
             getHabitCompletions(user.id, selectedDate)
           ]);
 
+          console.log('Loaded data:', { habitsData, completionsData });
           setHabits(habitsData);
           setCompletions(completionsData);
+        } else {
+          console.log('No user ID found');
         }
       } catch (err) {
         console.error('Error loading data:', err);

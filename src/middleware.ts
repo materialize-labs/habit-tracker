@@ -1,11 +1,12 @@
 import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import type { Database } from '@/types/database.types';
 
-export async function middleware(request: NextRequest) {
+export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
-  const supabase = createMiddlewareClient({ req: request, res });
-  
+  const supabase = createMiddlewareClient<Database>({ req, res });
+
   // Refresh session if expired - required for Server Components
   await supabase.auth.getSession();
 
@@ -13,23 +14,24 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Auth condition for dashboard routes
-  if (request.nextUrl.pathname.startsWith('/dashboard')) {
-    if (!user) {
-      return NextResponse.redirect(new URL('/auth', request.url));
+  // Auth condition - change according to your needs
+  const isAuth = !!user;
+  const isAuthPage = req.nextUrl.pathname.startsWith('/auth');
+
+  if (isAuthPage) {
+    if (isAuth) {
+      return NextResponse.redirect(new URL('/dashboard', req.url));
     }
+    return res;
   }
 
-  // Auth condition for auth page - redirect to dashboard if already logged in
-  if (request.nextUrl.pathname === '/auth') {
-    if (user) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
+  if (!isAuth && req.nextUrl.pathname.startsWith('/dashboard')) {
+    return NextResponse.redirect(new URL('/auth', req.url));
   }
 
   return res;
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/auth'],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 }; 

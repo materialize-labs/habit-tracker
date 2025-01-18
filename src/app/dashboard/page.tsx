@@ -5,13 +5,15 @@ import { getHabits, getHabitCompletions, toggleHabitCompletion } from '@/service
 import { Database } from '@/types/database.types';
 import { supabase } from '@/lib/supabaseClient';
 import { format, subDays, addDays } from 'date-fns';
-import { ChevronLeft, ChevronRight, CheckCircle2, Circle, Calendar, ArrowDownCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, Circle, ArrowDownCircle, Calendar } from 'lucide-react';
 import { HabitsSkeleton } from '@/components/skeletons/habits-skeleton';
 import { useSwipe } from '@/hooks/use-swipe';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Dialog } from '@/components/ui/dialog';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
 type Habit = Database['public']['Tables']['habits']['Row'];
 type HabitCompletion = Database['public']['Tables']['habit_completion']['Row'];
@@ -23,7 +25,6 @@ export default function DashboardPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -186,15 +187,44 @@ export default function DashboardPage() {
           <ChevronLeft className="h-5 w-5" />
         </button>
         
-        <button
-          onClick={() => setIsDatePickerOpen(true)}
-          className="flex items-center gap-2 px-3 py-1 hover:bg-accent rounded-md transition-colors"
-        >
-          <span className="text-lg font-semibold">
-            {format(selectedDate, 'MMM d, yyyy')}
-          </span>
-          <Calendar className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          {!isToday && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedDate(new Date())}
+              className="text-sm"
+            >
+              Today
+            </Button>
+          )}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1 hover:bg-accent rounded-md transition-colors",
+                  "text-left font-medium"
+                )}
+              >
+                <span className="text-lg font-semibold">
+                  {format(selectedDate, 'MMM d, yyyy')}
+                </span>
+                <Calendar className="h-4 w-4" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="center">
+              <CalendarComponent
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => date && setSelectedDate(date)}
+                disabled={(date) =>
+                  date > new Date() || date < new Date('2024-01-01')
+                }
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
 
         <button
           onClick={() => handleDateChange(1)}
@@ -257,26 +287,6 @@ export default function DashboardPage() {
           })}
         </div>
       </div>
-
-      {/* Date Picker Dialog */}
-      <Dialog
-        isOpen={isDatePickerOpen}
-        onClose={() => setIsDatePickerOpen(false)}
-        title="Select Date"
-      >
-        <div className="p-4">
-          <input
-            type="date"
-            max={format(new Date(), 'yyyy-MM-dd')}
-            value={format(selectedDate, 'yyyy-MM-dd')}
-            onChange={(e) => {
-              setSelectedDate(new Date(e.target.value));
-              setIsDatePickerOpen(false);
-            }}
-            className="w-full p-2 rounded-md border bg-background"
-          />
-        </div>
-      </Dialog>
     </div>
   );
 } 

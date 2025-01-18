@@ -112,7 +112,7 @@
   - TypeScript is properly configured with the correct settings in `tsconfig.json`
   - All necessary type definitions are installed
 
-- [ ] **Debug Environment Configuration**
+- [x] **Debug Environment Configuration**
   - If any errors occur during the above setup, confirm that:
     - ✅ `.env` variables are correctly loaded.
     - ✅ `process.env.NEXT_PUBLIC_*` variables are correctly prefixed with "NEXT_PUBLIC_".
@@ -173,7 +173,7 @@
 
 ### Tasks:
 
-- [ ] **Create a Supabase Project**
+- [x] **Create a Supabase Project**
   - Log in to the [Supabase Dashboard](https://app.supabase.com/).
   - Create a new project by clicking **New Project** and provide:
     - **Project name**: Habit Tracker
@@ -181,46 +181,50 @@
     - **Region**: Choose the closest region for low latency.
   - Once the project is created, navigate to the **Project Settings > API** section to retrieve the `Supabase URL` and `public anon key`.
 
-- [ ] **Configure Supabase Environment Variables**
+- [x] **Configure Supabase Environment Variables**
   - Open the `.env` file in the root directory and add the following (replace placeholders with actual values from the dashboard):
     ```env
     NEXT_PUBLIC_SUPABASE_URL=<your-supabase-url>
     NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-supabase-anon-key>
     ```
 
-- [ ] **Set Up Supabase Client**
+- [x] **Set Up Supabase Client**
   - Create a new file `src/lib/supabaseClient.ts` to manage the Supabase client
 
-- [ ] **Enable Magic Link Authentication**
+- [x] **Enable Magic Link Authentication**
   - Go to the **Authentication > Settings** section in the Supabase dashboard.
   - Under the **Email** section, enable **Magic Link** authentication (enabled by default).
-  - Set the `Site URL` under **Settings > Site URL** to match your app’s development URL (e.g., `http://localhost:3000`).
+  - Set the `Site URL` under **Settings > Site URL** to match your app's development URL (e.g., `http://localhost:3000`).
+  - Updated email template to use correct token_hash format.
 
-- [ ] **Test Supabase Client**
+- [x] **Test Supabase Client**
   - Add a test call in `src/app/page.tsx` to confirm the connection
   - Start the development server and check the console for a valid session response.
 
-- [ ] **Set Up Supabase Authentication Flow**
+- [x] **Set Up Supabase Authentication Flow**
   - Create a directory `src/app/auth/` and add the following files to manage the authentication workflow:
     - `page.tsx`: Authentication page (email input + magic link).
     - `layout.tsx`: Layout for the auth page.
+    - `confirm/route.ts`: Magic link verification endpoint.
   - Define the **Authentication Page** in `src/app/auth/page.tsx`
 
-- [ ] **Redirect Users on Successful Login**
-  - After logging in, users will be redirected to the `dashboard` page. Make sure the `/dashboard` route is set up later (covered in future steps).
+- [x] **Redirect Users on Successful Login**
+  - After logging in, users will be redirected to the `dashboard` page.
+  - Created basic dashboard page at `/dashboard` to display welcome message and user email.
 
-- [ ] **Listen for Authentication Events**
+- [x] **Listen for Authentication Events**
   - Ensure proper session handling by listening for changes in authentication state. Add this logic to a global `AuthContext`:
     - Create `src/contexts/AuthContext.tsx`
     - Wrap the app with `AuthProvider` in `layout.tsx` for global authentication
 
 ### Completion Checklist:
-- [ ] Supabase project created and environment variables configured.
-- [ ] Magic Link authentication enabled in Supabase dashboard.
-- [ ] Supabase client set up and verified.
-- [ ] Authentication page (`src/app/auth/page.tsx`) created with email input.
-- [ ] Authentication state handled globally using `AuthContext`.
-- [ ] Application tests login flow successfully with Magic Link.
+- [x] Supabase project created and environment variables configured.
+- [x] Magic Link authentication enabled in Supabase dashboard.
+- [x] Supabase client set up and verified.
+- [x] Authentication page (`src/app/auth/page.tsx`) created with email input.
+- [x] Authentication state handled globally using middleware.
+- [x] Application tested login flow successfully with Magic Link.
+- [x] Basic dashboard page created for authenticated users.
 
 ## 5. Design and Populate Database Tables in Supabase
 
@@ -583,7 +587,7 @@
 
 - [ ] **Set Up AuthContext**
   - Define an `AuthContext` to manage global authentication state so that user information is available across the app.
-  - Implement the `AuthProvider` that wraps the entire app in the layout, providing the logged-in user’s state to all child components.
+  - Implement the `AuthProvider` that wraps the entire app in the layout, providing the logged-in user's state to all child components.
 
 - [ ] **Set Up DateContext (Optional)**
   - Create a `DateContext` to manage the selected date for the Habit Tracker and ensure consistency when navigating between pages (e.g., Habit Tracker and Statistics pages).
@@ -704,7 +708,7 @@
 ### Tasks:
 
 - [ ] **Configure TailwindCSS to Prioritize Mobile Design**
-  - Tailwind works with a mobile-first philosophy by default. However, ensure all components use responsiveness effectively by relying on Tailwind’s breakpoint utilities (`sm`, `md`, `lg`, etc.) for progressive enhancement.
+  - Tailwind works with a mobile-first philosophy by default. However, ensure all components use responsiveness effectively by relying on Tailwind's breakpoint utilities (`sm`, `md`, `lg`, etc.) for progressive enhancement.
 
 - [ ] **Ensure Responsive Layouts Across All Pages**
   - Verify and adjust the following core pages to work seamlessly on small devices:
@@ -746,7 +750,7 @@
     - Ensure buttons, inputs, and checkboxes remain large enough for touch use.
 
 - [ ] **Optimize Typography for Readability**
-  - Use TailwindCSS’s `text-lg` or `text-sm` classes to scale text sizes appropriately for smaller screens.
+  - Use TailwindCSS's `text-lg` or `text-sm` classes to scale text sizes appropriately for smaller screens.
   - Example:
     - Use `text-base` on small screens, scale up using breakpoints:
       ```tsx

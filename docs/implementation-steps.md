@@ -569,15 +569,21 @@
 
 ### Tasks:
 
-- [ ] **Set Up Statistics Page Route**
+- [x] **Set Up Statistics Page Route**
   - Create a directory for the statistics page
+  - Add `page.tsx` with weekly and monthly views
+  - Implement mobile-first layout with ShadCN components
 
-- [ ] **Update Service Layer to Support Date Ranges**
+- [x] **Update Service Layer to Support Date Ranges**
   - Update `src/services/habitService.ts` to include fetching habit completions for a date range
+  - Added `getHabitCompletionsForDateRange` function for fetching stats
 
-- [ ] **Style the Statistics Page**
-  - Use TailwindCSS to ensure the statistics are visually appealing.
+- [x] **Style the Statistics Page**
+  - Use TailwindCSS to ensure the statistics are visually appealing
   - Add subtle background colors, section headers, and spacing for better readability
+  - Implement loading states and error handling
+  - Add navigation between weeks/months
+  - Prevent future date selection
 
 - [ ] **Test the Statistics Workflow**
   - Log in as a test user and:
@@ -586,16 +592,18 @@
        - Weekly stats show the correct number of completions.
        - Monthly stats reflect accurate totals for the month.
 
-- [ ] **Error Feedback for Failing Data Fetches**
-  - Ensure any Supabase errors are displayed on the page
+- [x] **Error Feedback for Failing Data Fetches**
+  - Added error state handling in the UI
+  - Display user-friendly error messages
+  - Show loading states during data fetching
 
 ### Completion Checklist:
-- [ ] Statistics page created at `/dashboard/stats/`.
-- [ ] Weekly stats show habit completions for the last 7 days.
-- [ ] Monthly stats show habit completions for the current month.
-- [ ] UI styled and responsive for better readability.
+- [x] Statistics page created at `/dashboard/stats/`.
+- [x] Weekly stats show habit completions for the last 7 days.
+- [x] Monthly stats show habit completions for the current month.
+- [x] UI styled and responsive for better readability.
 - [ ] Database integration tested and confirmed with real test data.
-- [ ] Error handling verified for failing data fetch scenarios.
+- [x] Error handling verified for failing data fetch scenarios.
 
 ## 13. Set Up React Context for Global State Management
 

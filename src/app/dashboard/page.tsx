@@ -186,18 +186,8 @@ export default function DashboardPage() {
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
-        
+
         <div className="flex items-center gap-2">
-          {!isToday && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedDate(new Date())}
-              className="text-sm"
-            >
-              Today
-            </Button>
-          )}
           <Popover>
             <PopoverTrigger asChild>
               <button
@@ -234,6 +224,17 @@ export default function DashboardPage() {
           <ChevronRight className="h-5 w-5" />
         </button>
       </div>
+
+      {/* Back to Today Button */}
+      {!isToday && (
+        <Button
+          variant="outline"
+          onClick={() => setSelectedDate(new Date())}
+          className="w-full"
+        >
+          Back to Today
+        </Button>
+      )}
 
       {/* Progress Stats */}
       <div className="rounded-lg border bg-card p-6">

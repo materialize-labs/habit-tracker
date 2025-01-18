@@ -1,9 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
 
   useEffect(() => {
@@ -17,31 +21,37 @@ export default function ProfilePage() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+    router.push('/');
   };
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
         <p className="text-muted-foreground">
-          Manage your account settings
+          Your account information
         </p>
       </div>
 
-      <div className="rounded-lg border p-4">
-        <div className="space-y-3">
-          <div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Account Details</CardTitle>
+          <CardDescription>View and manage your account settings</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1">
             <label className="text-sm font-medium text-muted-foreground">Email</label>
-            <p className="text-foreground">{email}</p>
+            <p className="text-foreground font-medium">{email}</p>
           </div>
-          <button
+          <Button 
+            variant="destructive" 
             onClick={handleSignOut}
-            className="w-full rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
+            className="w-full"
           >
-            Sign Out
-          </button>
-        </div>
-      </div>
+            Sign out
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 } 

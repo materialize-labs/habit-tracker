@@ -39,21 +39,26 @@ export default function AuthPage() {
         email,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/confirm`,
-          shouldCreateUser: true,
+          shouldCreateUser: false,
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('Email not found')) {
+          throw new Error('This email is not registered. Only existing users can log in.');
+        }
+        throw error;
+      }
 
       setMessage({
-        text: 'Check your email for the magic link!',
+        text: 'Check your email for the login link!',
         type: 'success'
       });
     } catch (error) {
       setMessage({
         text: error instanceof z.ZodError 
           ? error.errors[0].message 
-          : 'An error occurred. Please try again.',
+          : error instanceof Error ? error.message : 'An error occurred. Please try again.',
         type: 'error'
       });
     } finally {
@@ -65,9 +70,9 @@ export default function AuthPage() {
     <div className="h-full flex items-center justify-center">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold">Sign in to Habit Tracker</h1>
+          <h1 className="text-2xl font-bold">Log in to Habit Tracker</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Enter your email to receive a magic link
+            Enter your email to receive a login link
           </p>
         </div>
 
@@ -88,7 +93,7 @@ export default function AuthPage() {
             className="w-full"
             disabled={loading}
           >
-            {loading ? 'Sending magic link...' : 'Send magic link'}
+            {loading ? 'Sending login link...' : 'Send login link'}
           </Button>
 
           {message && (

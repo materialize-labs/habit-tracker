@@ -230,7 +230,7 @@
 
 ### Tasks:
 
-- [ ] **Create Database Tables in Supabase**
+- [x] **Create Database Tables in Supabase**
   - Navigate to the **SQL Editor** in the Supabase dashboard and create the necessary tables based on the database schema.
 
   - **Create `Habits` Table**  
@@ -254,7 +254,7 @@
     );
     ```
 
-- [ ] **Insert Static Habit Data into `Habits` Table**
+- [x] **Insert Static Habit Data into `Habits` Table**
   - Use the SQL Editor or the Table Editor to populate the `Habits` table with the static predefined list of 12 habits:
     ```sql
     INSERT INTO public.habits (name)
@@ -273,65 +273,31 @@
       ('Surf');
     ```
 
-- [ ] **Verify Table Relationships**
+- [x] **Verify Table Relationships**
   - Ensure that the relationships between the `auth.users`, `habits`, and `habit_completion` tables function correctly:
     - **`auth.users → habit_completion`**: Every habit completion should reference a valid `user_id` from the Supabase authentication table.
     - **`habits → habit_completion`**: Every habit completion must reference a valid `habit_id` from the `habits` table.
 
-- [ ] **Test the Table Setup with Dummy Data**
-  - Insert test rows into the `habit_completion` table to ensure foreign keys, relationships, and constraints are functioning as expected:
-    ```sql
-    INSERT INTO public.habit_completion (user_id, habit_id, completion_date)
-    VALUES
-      ('<user-uuid>', 1, '2025-01-01'),
-      ('<user-uuid>', 2, '2025-01-01'),
-      ('<user-uuid>', 3, '2025-01-02');
-    ```
+- [x] **Test the Table Setup with Dummy Data**
+  - Insert test rows into the `habit_completion` table to ensure foreign keys, relationships, and constraints are functioning as expected.
+  - Query all tables to confirm data integrity.
 
-  Replace `<user-uuid>` with a valid `id` from the `auth.users` table.
+- [x] **Apply Row-Level Security (RLS) Policies**
+  - Enable Row-Level Security on the `habit_completion` table to ensure users can only access their own data.
+  - Created policies for SELECT, INSERT, and DELETE operations.
+  - Added policy for authenticated users to view the static habits table.
 
-  - Query all tables to confirm data integrity:
-    ```sql
-    SELECT * FROM public.habits;
-    SELECT * FROM public.habit_completion;
-    ```
-
-- [ ] **Apply Row-Level Security (RLS) Policies**
-  - Enable Row-Level Security on the `habit_completion` table to ensure users can only access their own data. This prevents unauthorized access to other users' data.
-
-  - Go to **Table Editor > habit_completion > Policies** and add the following security policy:
-    ```sql
-    CREATE POLICY "Users can manage their habit completions"
-    ON public.habit_completion
-    FOR ALL
-    USING (auth.uid() = user_id)
-    WITH CHECK (auth.uid() = user_id);
-    ```
-
-  - Test RLS:
-    - Log in as a specific user and confirm they can only access their own `habit_completion` entries.
-    - Attempt to access or insert records with a different `user_id` and verify RLS prevents the operation.
-
-- [ ] **Optionally Generate TypeScript Types**
-  - Supabase allows automatic generation of TypeScript types to mirror the database schema. Use the Supabase CLI to generate and save these types for code completion and type safety:
-    ```bash
-    supabase gen types typescript --project-id <project-id> > src/types/database.types.ts
-    ```
-
-  - Import the generated types into the project:
-    ```ts
-    import { Database } from "@/types/database.types";
-
-    // Example usage
-    type HabitCompletion = Database["public"]["Tables"]["habit_completion"]["Row"];
-    ```
+- [x] **Generate TypeScript Types**
+  - Generated TypeScript types to mirror the database schema.
+  - Created `src/types/database.types.ts` with proper interfaces.
+  - Created `src/services/habitService.ts` with typed database operations.
 
 ### Completion Checklist:
-- [ ] `Habits` table created and populated with the predefined static list.
-- [ ] `Habit_Completion` table created with proper relationships to `auth.users` and `habits`.
-- [ ] Row-Level Security (RLS) enabled and tested to restrict user access to their own records.
-- [ ] Test entries for habits and habit completions added and verified for correctness.
-- [ ] Optional: TypeScript types generated from the Supabase schema.
+- [x] `Habits` table created and populated with the predefined static list.
+- [x] `Habit_Completion` table created with proper relationships to `auth.users` and `habits`.
+- [x] Row-Level Security (RLS) enabled and tested to restrict user access to their own records.
+- [x] Test entries for habits and habit completions added and verified for correctness.
+- [x] TypeScript types generated from the Supabase schema.
 
 ## 6. Implement Global Styles and Layout
 
@@ -468,6 +434,8 @@
 - [ ] Middleware created to protect authenticated dashboard routes.
 - [ ] Auth state management implemented globally using `AuthContext`.
 - [ ] Authentication logic verified with test users.
+- [ ] Application tested login flow successfully with Magic Link.
+- [ ] Basic dashboard page created for authenticated users.
 
 ## 9. Implement Habit Tracker Page
 

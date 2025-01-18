@@ -1104,3 +1104,45 @@ npm install framer-motion lucide-react date-fns
 ```
 
 Would you like me to proceed with implementing Phase 1 of this transformation plan?
+
+## UI/UX Improvements
+
+### Tasks:
+
+- [ ] **Consolidate Home and Habits Pages**
+  - Merge functionality from both pages into a single, streamlined view
+  - Remove the Habits tab from bottom navigation
+  - Update routes and navigation structure
+
+- [ ] **Enhance Date Navigation**
+  - Add date picker component for quick date selection
+  - Add forward/backward navigation arrows
+  - Display current/selected date prominently
+  - Prevent future date selection
+
+- [ ] **Update Dashboard Layout**
+  - Reorganize content for better flow:
+    1. Date navigation section at top
+    2. Progress statistics
+    3. Habits list with completion toggles
+  - Ensure consistent spacing and visual hierarchy
+  - Maintain mobile-first design principles
+
+- [ ] **Polish Visual Design**
+  - Add smooth transitions between date changes
+  - Ensure consistent styling across all elements
+  - Optimize touch targets for mobile
+  - Add visual feedback for interactions
+
+### Completion Checklist:
+- [ ] Home and Habits pages merged successfully
+- [ ] Date navigation working smoothly
+- [ ] Layout optimized for mobile use
+- [ ] All interactions have proper feedback
+- [ ] Navigation structure simplified
+
+### Files to Modify:
+1. `src/app/dashboard/page.tsx` - Update with merged functionality
+2. `src/components/ui/bottom-nav.tsx` - Remove Habits tab
+3. `src/app/dashboard/tracker/page.tsx` - Remove or repurpose
+4. Related test and type files

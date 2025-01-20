@@ -56,11 +56,18 @@ A minimalist, mobile-first habit tracking application designed to help users bui
    yarn install
    ```
 
-3. Create a `.env.local` file in the root directory:
-   ```env
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+3. Copy the `.env.example` file to `.env.local`:
+   ```bash
+   cp .env.example .env.local
    ```
+
+4. Set up your environment variables in `.env.local`:
+   - Go to your Supabase project dashboard
+   - Navigate to Project Settings -> API
+   - Find the following values:
+     - `NEXT_PUBLIC_SUPABASE_URL`: Your project URL (e.g., https://xxx.supabase.co)
+     - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your project's anon/public key
+   - Replace the placeholder values in `.env.local` with your actual values
 
 ### Database Setup
 1. Create a new Supabase project

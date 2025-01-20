@@ -10,6 +10,7 @@ import { TrackerSkeleton } from '@/components/skeletons/tracker-skeleton';
 import { useSwipe } from '@/hooks/use-swipe';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { motion, AnimatePresence } from 'framer-motion';
+import { isInFuture, getToday, getLocalDateString } from '@/lib/dateUtils';
 
 type Habit = Database['public']['Tables']['habits']['Row'];
 type HabitCompletion = Database['public']['Tables']['habit_completion']['Row'];
@@ -17,7 +18,7 @@ type HabitCompletion = Database['public']['Tables']['habit_completion']['Row'];
 export default function TrackerPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [completions, setCompletions] = useState<HabitCompletion[]>([]);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(getToday());
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -53,9 +54,8 @@ export default function TrackerPage() {
 
   const handleDateChange = (days: number) => {
     const newDate = days > 0 ? addDays(selectedDate, days) : subDays(selectedDate, Math.abs(days));
-    const isInFuture = format(newDate, 'yyyy-MM-dd') > format(new Date(), 'yyyy-MM-dd');
     
-    if (!isInFuture) {
+    if (!isInFuture(newDate)) {
       setSelectedDate(newDate);
     }
   };
@@ -93,7 +93,7 @@ export default function TrackerPage() {
           id: crypto.randomUUID(),
           user_id: userId,
           habit_id: habitId,
-          completion_date: selectedDate.toISOString()
+          completion_date: getLocalDateString(selectedDate)
         }]);
       } else {
         setCompletions(prev => prev.filter(c => c.habit_id !== habitId));
@@ -106,6 +106,8 @@ export default function TrackerPage() {
   if (loading) {
     return <TrackerSkeleton />;
   }
+
+  const isToday = getLocalDateString(selectedDate) === getLocalDateString(getToday());
 
   return (
     <div className="space-y-6">

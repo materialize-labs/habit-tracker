@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { isInFuture, getToday, getLocalDateString } from '@/lib/dateUtils';
 
 type Habit = Database['public']['Tables']['habits']['Row'];
 type HabitCompletion = Database['public']['Tables']['habit_completion']['Row'];
@@ -24,7 +25,7 @@ export default function DashboardPage() {
   const [email, setEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(getToday());
 
   useEffect(() => {
     async function loadData() {
@@ -63,9 +64,8 @@ export default function DashboardPage() {
 
   const handleDateChange = (days: number) => {
     const newDate = days > 0 ? addDays(selectedDate, days) : subDays(selectedDate, Math.abs(days));
-    const isInFuture = format(newDate, 'yyyy-MM-dd') > format(new Date(), 'yyyy-MM-dd');
     
-    if (!isInFuture) {
+    if (!isInFuture(newDate)) {
       setSelectedDate(newDate);
     }
   };
@@ -126,7 +126,7 @@ export default function DashboardPage() {
           id: crypto.randomUUID(),
           user_id: userId,
           habit_id: habitId,
-          completion_date: selectedDate.toISOString()
+          completion_date: getLocalDateString(selectedDate)
         }]);
       } else {
         setCompletions(prev => prev.filter(c => c.habit_id !== habitId));
@@ -144,7 +144,7 @@ export default function DashboardPage() {
     return <HabitsSkeleton />;
   }
 
-  const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+  const isToday = getLocalDateString(selectedDate) === getLocalDateString(getToday());
 
   return (
     <div className="space-y-6">

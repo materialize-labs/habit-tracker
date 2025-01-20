@@ -15,6 +15,7 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { isInFuture, getToday, getLocalDateString } from '@/lib/dateUtils';
+import { HabitCard } from '@/components/ui/habit-card';
 
 type Habit = Database['public']['Tables']['habits']['Row'];
 type HabitCompletion = Database['public']['Tables']['habit_completion']['Row'];
@@ -70,10 +71,13 @@ export default function DashboardPage() {
     }
   };
 
-  // Swipe gestures for date navigation
-  useSwipe({
+  // Get swipe information for animations
+  const { swipeProgress } = useSwipe({
     onSwipeLeft: () => handleDateChange(1),
-    onSwipeRight: () => handleDateChange(-1)
+    onSwipeRight: () => handleDateChange(-1),
+    threshold: 150,
+    minVelocity: 0.15,
+    maxVerticalMovement: 50
   });
 
   // Pull-to-refresh functionality
@@ -236,58 +240,63 @@ export default function DashboardPage() {
         </Button>
       )}
 
-      {/* Progress Stats */}
-      <div className="rounded-lg border bg-card p-6">
-        <h2 className="font-semibold mb-4">
-          {isToday ? "Today's Progress" : 'Progress'}
-        </h2>
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="text-center">
-            <div className="text-2xl font-bold">{completedCount}</div>
-            <div className="text-xs text-muted-foreground">Completed</div>
+      {/* Animated Content Section */}
+      <HabitCard swipeProgress={swipeProgress} selectedDate={selectedDate}>
+        <div className="space-y-6">
+          {/* Progress Stats */}
+          <div className="bg-card rounded-lg border p-6">
+            <h2 className="font-semibold mb-4">
+              {isToday ? "Today's Progress" : 'Progress'}
+            </h2>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold">{completedCount}</div>
+                <div className="text-xs text-muted-foreground">Completed</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold">{totalHabits - completedCount}</div>
+                <div className="text-xs text-muted-foreground">Remaining</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold">{completionRate}%</div>
+                <div className="text-xs text-muted-foreground">Complete</div>
+              </div>
+            </div>
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold">{totalHabits - completedCount}</div>
-            <div className="text-xs text-muted-foreground">Remaining</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold">{completionRate}%</div>
-            <div className="text-xs text-muted-foreground">Complete</div>
-          </div>
-        </div>
-      </div>
 
-      {/* Habits List */}
-      <div>
-        <h2 className="font-semibold mb-4">
-          {isToday ? "Today's Habits" : 'Habits'}
-        </h2>
-        <div className="space-y-2">
-          {habits.map((habit) => {
-            const completed = isHabitCompleted(habit.id);
-            return (
-              <motion.button
-                key={habit.id}
-                onClick={() => handleToggleHabit(habit.id)}
-                className="w-full flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent transition-colors"
-                whileTap={{ scale: 0.98 }}
-              >
-                <span className="font-medium">{habit.name}</span>
-                <motion.div
-                  initial={false}
-                  animate={completed ? { scale: [0.8, 1.2, 1] } : { scale: 1 }}
-                >
-                  {completed ? (
-                    <CheckCircle2 className="h-6 w-6 text-green-500" />
-                  ) : (
-                    <Circle className="h-6 w-6 text-muted-foreground" />
-                  )}
-                </motion.div>
-              </motion.button>
-            );
-          })}
+          {/* Habits List */}
+          <div>
+            <h2 className="font-semibold mb-4">
+              {isToday ? "Today's Habits" : 'Habits'}
+            </h2>
+            <div className="space-y-2">
+              {habits.map((habit) => {
+                const completed = isHabitCompleted(habit.id);
+                return (
+                  <motion.button
+                    key={habit.id}
+                    onClick={() => handleToggleHabit(habit.id)}
+                    className="w-full flex items-center justify-between p-4 rounded-lg bg-card border hover:bg-accent transition-colors"
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <span className="font-medium">{habit.name}</span>
+                    <motion.div
+                      initial={false}
+                      animate={completed ? { scale: [0.8, 1.2, 1] } : { scale: 1 }}
+                    >
+                      {completed ? (
+                        <CheckCircle2 className="h-6 w-6 text-green-500" />
+                      ) : (
+                        <Circle className="h-6 w-6 text-muted-foreground" />
+                      )}
+                    </motion.div>
+                  </motion.button>
+                );
+              })}
+            </div>
+          </div>
         </div>
-      </div>
+      </HabitCard>
     </div>
   );
 } 

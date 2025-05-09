@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, BarChart2, User } from 'lucide-react';
+import { Home, BarChart2, User, Settings2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -17,6 +17,11 @@ const navItems = [
     icon: BarChart2
   },
   {
+    href: '/dashboard/habits',
+    label: 'Habits',
+    icon: Settings2
+  },
+  {
     href: '/dashboard/profile',
     label: 'Profile',
     icon: User
@@ -28,7 +33,7 @@ export function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-t">
-      <div className="grid grid-cols-3 h-16">
+      <div className="grid grid-cols-4 h-16">
         {navItems.map(({ href, label, icon: Icon }) => {
           const isActive = pathname === href;
           

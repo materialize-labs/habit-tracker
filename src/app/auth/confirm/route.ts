@@ -1,24 +1,29 @@
+// This file handles the Supabase magic link callback using PKCE flow.
+// It exchanges an authorization code from the URL for a user session.
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import type { Database } from '@/types/database.types'
-import { type EmailOtpType } from '@supabase/supabase-js'
 
 export async function GET(request: NextRequest) {
-  console.log('Confirm route hit with params:', request.url)
+  console.log('Auth Confirm Route: All incoming cookies:', JSON.stringify(request.cookies.getAll())); // Log all cookies
   const requestUrl = new URL(request.url)
-  const token_hash = requestUrl.searchParams.get('token_hash')
-  const type = requestUrl.searchParams.get('type') as EmailOtpType | null
-  
-  if (!token_hash || !type) {
-    console.error('Missing parameters:', { token_hash, type })
-    return NextResponse.redirect(
-      new URL('/auth?error=Missing authentication parameters', request.url)
-    )
+  console.log('Confirm route hit. Full URL:', requestUrl.toString()) // Log the full URL
+
+  const code = requestUrl.searchParams.get('code')
+  // The email param is still here from our emailRedirectTo but not directly used by exchangeCodeForSession
+  // const email = requestUrl.searchParams.get('email') 
+
+  if (!code) {
+    console.error("Missing 'code' parameter in callback URL. URL was:", requestUrl.toString())
+    // Construct the redirect URL correctly
+    const redirectUrl = new URL('/auth', requestUrl.origin)
+    redirectUrl.searchParams.set('error', 'Missing authentication code')
+    return NextResponse.redirect(redirectUrl)
   }
 
-  // Create the response with the redirect first
-  const response = NextResponse.redirect(new URL('/dashboard', request.url))
+  const dashboardRedirectUrl = new URL('/dashboard', requestUrl.origin)
+  const response = NextResponse.redirect(dashboardRedirectUrl)
 
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,47 +32,37 @@ export async function GET(request: NextRequest) {
       cookies: {
         get(name) {
           const cookie = request.cookies.get(name)
-          console.log('Getting cookie:', name, cookie?.value)
           return cookie?.value
         },
         set(name, value, options) {
-          console.log('Setting cookie:', name, value, options)
-          // Set the cookie in our response
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-            httpOnly: false,
-            path: '/'
-          })
+          // Allow Supabase SSR to handle httpOnly defaults
+          response.cookies.set({ name, value, ...options, path: '/' })
         },
         remove(name, options) {
-          console.log('Removing cookie:', name)
-          response.cookies.delete(name)
+          // Allow Supabase SSR to handle httpOnly defaults
+          response.cookies.set({ name, value: '', ...options, path: '/' })
         },
       },
     }
   )
 
   try {
-    console.log('Attempting to verify OTP with:', { type, token_hash })
-    const { data, error } = await supabase.auth.verifyOtp({
-      type,
-      token_hash,
-    })
+    console.log('Attempting to exchange code for session with code:', code)
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (error) {
-      console.error('Error verifying Magic Link:', error)
-      throw error
+      console.error('Error exchanging code for session:', error)
+      const errorRedirectUrl = new URL('/auth', requestUrl.origin)
+      errorRedirectUrl.searchParams.set('error', 'Could not exchange code for session')
+      return NextResponse.redirect(errorRedirectUrl)
     }
-
-    console.log('OTP verification successful:', data)
     
+    console.log('Successfully exchanged code for session and set cookies.')
     return response
   } catch (error) {
-    console.error('Detailed error in confirm route:', error)
-    return NextResponse.redirect(
-      new URL('/auth?error=Could not verify Magic Link', request.url)
-    )
+    console.error('Unexpected error in confirm route during code exchange:', error)
+    const errorRedirectUrl = new URL('/auth', requestUrl.origin)
+    errorRedirectUrl.searchParams.set('error', 'Unexpected error during authentication')
+    return NextResponse.redirect(errorRedirectUrl)
   }
 } 

@@ -38,7 +38,7 @@ export default function AuthForm() {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/confirm`,
+          emailRedirectTo: `${window.location.origin}/auth/confirm?email=${encodeURIComponent(email)}`,
           shouldCreateUser: false,
         },
       });

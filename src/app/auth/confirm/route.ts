@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get('code')
   // The email param is still here from our emailRedirectTo but not directly used by exchangeCodeForSession
   // const email = requestUrl.searchParams.get('email') 
-
+  
   if (!code) {
     console.error("Missing 'code' parameter in callback URL. URL was:", requestUrl.toString())
     // Construct the redirect URL correctly
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       errorRedirectUrl.searchParams.set('error', 'Could not exchange code for session')
       return NextResponse.redirect(errorRedirectUrl)
     }
-    
+
     console.log('Successfully exchanged code for session and set cookies.')
     return response
   } catch (error) {

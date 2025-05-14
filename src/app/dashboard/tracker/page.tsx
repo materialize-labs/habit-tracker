@@ -1,109 +1,132 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { getHabits, getHabitCompletions, toggleHabitCompletion } from '@/services/habitService';
-import { Database } from '@/types/database.types';
+import { useEffect, useState, useCallback } from 'react';
+import {
+  getHabitsForUser,
+  getHabitCompletions,
+  toggleHabitCompletion,
+  type Habit as ServiceHabitType,
+  type HabitCompletion as ServiceCompletionType
+} from '@/services/habitService';
 import { supabase } from '@/lib/supabaseClient';
 import { format, subDays, addDays } from 'date-fns';
-import { ChevronLeft, ChevronRight, CheckCircle2, Circle, ArrowDownCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, Circle, ArrowDownCircle, Loader2 } from 'lucide-react';
 import { TrackerSkeleton } from '@/components/skeletons/tracker-skeleton';
 import { useSwipe } from '@/hooks/use-swipe';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { motion, AnimatePresence } from 'framer-motion';
 import { isInFuture, getToday, getLocalDateString } from '@/lib/dateUtils';
 
-type Habit = Database['public']['Tables']['habits']['Row'];
-type HabitCompletion = Database['public']['Tables']['habit_completion']['Row'];
-
 export default function TrackerPage() {
-  const [habits, setHabits] = useState<Habit[]>([]);
-  const [completions, setCompletions] = useState<HabitCompletion[]>([]);
-  const [selectedDate, setSelectedDate] = useState(getToday());
+  const [habits, setHabits] = useState<ServiceHabitType[]>([]);
+  const [completions, setCompletions] = useState<ServiceCompletionType[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date>(getToday());
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
-  useEffect(() => {
-    async function loadUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUserId(user?.id ?? null);
+  const loadData = useCallback(async (dateToLoad: Date, currentUserId: string) => {
+    if (!initialLoadComplete) {
+      setLoading(true);
+    } else {
+      setLoading(true);
     }
-    loadUser();
-  }, []);
 
-  const loadData = async () => {
-    if (!userId) return;
-    
     try {
       const [habitsData, completionsData] = await Promise.all([
-        getHabits(),
-        getHabitCompletions(userId, selectedDate)
+        getHabitsForUser(currentUserId),
+        getHabitCompletions(currentUserId, dateToLoad)
       ]);
-
-      setHabits(habitsData);
-      setCompletions(completionsData);
+      setHabits(Array.isArray(habitsData) ? habitsData : []);
+      setCompletions(Array.isArray(completionsData) ? completionsData : []);
     } catch (err) {
-      console.error('Error loading data:', err);
+      console.error('Error loading data for tracker:', err);
+      setHabits([]);
+      setCompletions([]);
     } finally {
       setLoading(false);
+      if (!initialLoadComplete) setInitialLoadComplete(true);
     }
-  };
+  }, [initialLoadComplete]);
 
   useEffect(() => {
-    loadData();
-  }, [userId, selectedDate]);
+    async function fetchUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUserId(user?.id ?? null);
+      if (!user) {
+        setLoading(false);
+        setInitialLoadComplete(true);
+      }
+    }
+    fetchUser();
+  }, []);
+
+  useEffect(() => {
+    if (userId) {
+      loadData(selectedDate, userId);
+    }
+  }, [userId, selectedDate, loadData]);
 
   const handleDateChange = (days: number) => {
     const newDate = days > 0 ? addDays(selectedDate, days) : subDays(selectedDate, Math.abs(days));
-    
     if (!isInFuture(newDate)) {
       setSelectedDate(newDate);
     }
   };
 
-  // Swipe gestures for date navigation
   useSwipe({
     onSwipeLeft: () => handleDateChange(1),
-    onSwipeRight: () => handleDateChange(-1)
+    onSwipeRight: () => handleDateChange(-1),
+    threshold: 150,
+    minVelocity: 0.15,
+    maxVerticalMovement: 50
   });
 
-  // Pull-to-refresh functionality
   const { pullDistance, isRefreshing, progress } = usePullToRefresh({
-    onRefresh: loadData
+    onRefresh: async () => {
+      if (userId) {
+        await loadData(selectedDate, userId);
+      }
+    }
   });
 
-  const isHabitCompleted = (habitId: number) => {
-    return completions.some(completion => completion.habit_id === habitId);
+  const isHabitCompleted = (habitId: string): boolean => {
+    return completions.some((completion: ServiceCompletionType) => completion.habit_id === habitId);
   };
 
-  const handleToggleHabit = async (habitId: number) => {
+  const handleToggleHabit = async (habitId: string) => {
     if (!userId) return;
 
-    const completed = !isHabitCompleted(habitId);
+    const currentlyCompleted = isHabitCompleted(habitId);
+    const targetCompletedState = !currentlyCompleted;
+    const tempCompletionId = crypto.randomUUID();
+    const localDateStr = getLocalDateString(selectedDate);
+
+    if (targetCompletedState) {
+      const optimisticCompletion: ServiceCompletionType = {
+        id: tempCompletionId,
+        user_id: userId,
+        habit_id: habitId,
+        completion_date: localDateStr,
+        created_at: new Date().toISOString(),
+      };
+      setCompletions(prev => [...prev, optimisticCompletion]);
+    } else {
+      setCompletions(prev => prev.filter(c => !(c.habit_id === habitId && c.completion_date === localDateStr)));
+    }
+
     try {
-      await toggleHabitCompletion(userId, habitId, selectedDate, completed);
-      
-      // Trigger haptic feedback if available
+      await toggleHabitCompletion(userId, habitId, selectedDate, targetCompletedState);
       if (window.navigator.vibrate) {
         window.navigator.vibrate(50);
       }
-
-      // Optimistically update UI
-      if (completed) {
-        setCompletions(prev => [...prev, {
-          id: crypto.randomUUID(),
-          user_id: userId,
-          habit_id: habitId,
-          completion_date: getLocalDateString(selectedDate)
-        }]);
-      } else {
-        setCompletions(prev => prev.filter(c => c.habit_id !== habitId));
-      }
     } catch (err) {
       console.error('Error toggling habit:', err);
+      if (userId) await loadData(selectedDate, userId);
     }
   };
 
-  if (loading) {
+  if (loading && !initialLoadComplete) {
     return <TrackerSkeleton />;
   }
 
@@ -111,29 +134,25 @@ export default function TrackerPage() {
 
   return (
     <div className="space-y-6">
-      {/* Pull to Refresh Indicator */}
       <AnimatePresence>
-        {pullDistance > 0 && (
+        {(pullDistance > 0 || (loading && initialLoadComplete)) && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-0 left-0 right-0 flex justify-center py-2 bg-background/80 backdrop-blur-sm z-50"
+            className="fixed top-0 left-0 right-0 flex justify-center py-2 bg-background/80 backdrop-blur-sm z-50 items-center"
           >
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <ArrowDownCircle
-                className="h-4 w-4"
-                style={{
-                  transform: `rotate(${progress * 3.6}deg)`
-                }}
-              />
-              {isRefreshing ? 'Refreshing...' : 'Pull to refresh'}
+              {loading && initialLoadComplete ? 
+                <Loader2 className="h-4 w-4 animate-spin" /> :
+                <ArrowDownCircle className="h-4 w-4" style={{ transform: `rotate(${progress * 3.6}deg)` }}/>
+              }
+              {isRefreshing ? 'Refreshing...' : (loading && initialLoadComplete) ? 'Loading data...': 'Pull to refresh'}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Date Navigation */}
       <div className="flex items-center justify-between bg-card rounded-lg border p-4">
         <button
           onClick={() => handleDateChange(-1)}
@@ -149,15 +168,20 @@ export default function TrackerPage() {
         <button
           onClick={() => handleDateChange(1)}
           className="p-2 hover:bg-accent rounded-md transition-colors"
-          disabled={format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')}
+          disabled={isToday || loading}
         >
           <ChevronRight className="h-5 w-5" />
         </button>
       </div>
+      
+      {habits.length === 0 && !loading && (
+            <p className="text-sm text-center text-muted-foreground py-10">
+                {userId ? "No habits configured. Go to the 'Habits' tab to add some!" : "Please log in to track habits."}
+            </p>
+      )}
 
-      {/* Habits List */}
       <div className="space-y-2">
-        {habits.map((habit) => {
+        {habits.map((habit: ServiceHabitType) => {
           const completed = isHabitCompleted(habit.id);
           return (
             <motion.button
@@ -165,8 +189,9 @@ export default function TrackerPage() {
               onClick={() => handleToggleHabit(habit.id)}
               className="w-full flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent transition-colors"
               whileTap={{ scale: 0.98 }}
+              disabled={loading}
             >
-              <span className="font-medium">{habit.name}</span>
+              <span className="font-medium truncate" title={habit.name}>{habit.name}</span>
               <motion.div
                 initial={false}
                 animate={completed ? { scale: [0.8, 1.2, 1] } : { scale: 1 }}

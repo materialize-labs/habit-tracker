@@ -1,11 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { getHabits, getHabitCompletions, toggleHabitCompletion } from '@/services/habitService';
-import { Database } from '@/types/database.types';
+import { useEffect, useState, useCallback } from 'react';
+import {
+  getHabitsForUser as fetchHabitsFromService,
+  getHabitCompletions as fetchCompletionsFromService,
+  toggleHabitCompletion as toggleServiceHabitCompletion,
+  type Habit as ServiceHabitType,
+  type HabitCompletion as ServiceCompletionType
+} from '@/services/habitService';
 import { supabase } from '@/lib/supabaseClient';
 import { format, subDays, addDays } from 'date-fns';
-import { ChevronLeft, ChevronRight, CheckCircle2, Circle, ArrowDownCircle, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, Circle, ArrowDownCircle, Calendar, Loader2 } from 'lucide-react';
 import { HabitsSkeleton } from '@/components/skeletons/habits-skeleton';
 import { useSwipe } from '@/hooks/use-swipe';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
@@ -17,61 +22,62 @@ import { cn } from '@/lib/utils';
 import { isInFuture, getToday, getLocalDateString } from '@/lib/dateUtils';
 import { HabitCard } from '@/components/ui/habit-card';
 
-type Habit = Database['public']['Tables']['habits']['Row'];
-type HabitCompletion = Database['public']['Tables']['habit_completion']['Row'];
-
 export default function DashboardPage() {
-  const [habits, setHabits] = useState<Habit[]>([]);
-  const [completions, setCompletions] = useState<HabitCompletion[]>([]);
+  const [habits, setHabits] = useState<ServiceHabitType[]>([]);
+  const [completions, setCompletions] = useState<ServiceCompletionType[]>([]);
   const [email, setEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(getToday());
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(getToday());
+
+  const loadDashboardData = useCallback(async (dateToLoad: Date, currentUserId: string) => {
+    if (initialLoadComplete) setLoading(true); 
+    
+    try {
+      const [habitsData, completionsData] = await Promise.all([
+        fetchHabitsFromService(currentUserId),
+        fetchCompletionsFromService(currentUserId, dateToLoad)
+      ]);
+      setHabits(Array.isArray(habitsData) ? habitsData : []);
+      setCompletions(Array.isArray(completionsData) ? completionsData : []);
+    } catch (err) {
+      console.error('Error loading dashboard data:', err);
+      setHabits([]);
+      setCompletions([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [initialLoadComplete]);
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        console.log('Starting to load user data...');
-        // Get user info
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        console.log('Auth response:', { user, error: userError });
-        
-        setEmail(user?.email ?? null);
-        setUserId(user?.id ?? null);
-
-        if (user?.id) {
-          console.log('User authenticated, loading habits...');
-          // Load habits and completions for selected date
-          const [habitsData, completionsData] = await Promise.all([
-            getHabits(),
-            getHabitCompletions(user.id, selectedDate)
-          ]);
-
-          console.log('Loaded data:', { habitsData, completionsData });
-          setHabits(habitsData);
-          setCompletions(completionsData);
-        } else {
-          console.log('No user ID found');
-        }
-      } catch (err) {
-        console.error('Error loading data:', err);
-      } finally {
-        setLoading(false);
+    async function initialUserLoad() {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      setEmail(user?.email ?? null);
+      setUserId(user?.id ?? null);
+      if (user?.id) {
+        await loadDashboardData(selectedDate, user.id);
       }
+      setInitialLoadComplete(true); 
+      setLoading(false); 
     }
+    initialUserLoad();
+  }, []);
 
-    loadData();
-  }, [selectedDate]);
+  useEffect(() => {
+    if (userId && initialLoadComplete) { 
+      loadDashboardData(selectedDate, userId);
+    }
+  }, [selectedDate, userId, initialLoadComplete, loadDashboardData]);
 
   const handleDateChange = (days: number) => {
     const newDate = days > 0 ? addDays(selectedDate, days) : subDays(selectedDate, Math.abs(days));
-    
     if (!isInFuture(newDate)) {
       setSelectedDate(newDate);
     }
   };
 
-  // Get swipe information for animations
   const { swipeProgress } = useSwipe({
     onSwipeLeft: () => handleDateChange(1),
     onSwipeRight: () => handleDateChange(-1),
@@ -80,63 +86,47 @@ export default function DashboardPage() {
     maxVerticalMovement: 50
   });
 
-  // Pull-to-refresh functionality
   const { pullDistance, isRefreshing, progress } = usePullToRefresh({
     onRefresh: async () => {
-      try {
-        setLoading(true);
-        // Get user info
-        const { data: { user } } = await supabase.auth.getUser();
-        setEmail(user?.email ?? null);
-        setUserId(user?.id ?? null);
-
-        if (user?.id) {
-          // Load habits and completions for selected date
-          const [habitsData, completionsData] = await Promise.all([
-            getHabits(),
-            getHabitCompletions(user.id, selectedDate)
-          ]);
-
-          setHabits(habitsData);
-          setCompletions(completionsData);
-        }
-      } catch (err) {
-        console.error('Error loading data:', err);
-      } finally {
-        setLoading(false);
+      if (userId) {
+        await loadDashboardData(selectedDate, userId);
       }
     }
   });
 
-  const isHabitCompleted = (habitId: number) => {
-    return completions.some(completion => completion.habit_id === habitId);
+  const isHabitCompleted = (habitId: string): boolean => {
+    return completions.some((completion: ServiceCompletionType) => completion.habit_id === habitId);
   };
 
-  const handleToggleHabit = async (habitId: number) => {
+  const handleToggleHabit = async (habitId: string) => {
     if (!userId) return;
 
-    const completed = !isHabitCompleted(habitId);
+    const currentlyCompleted = isHabitCompleted(habitId);
+    const targetCompletedState = !currentlyCompleted;
+    const tempCompletionId = crypto.randomUUID();
+    const localDateStr = getLocalDateString(selectedDate);
+
+    if (targetCompletedState) {
+      const optimisticCompletion: ServiceCompletionType = {
+        id: tempCompletionId,
+        user_id: userId,
+        habit_id: habitId,
+        completion_date: localDateStr,
+        created_at: new Date().toISOString(),
+      };
+      setCompletions(prev => [...prev, optimisticCompletion]);
+    } else {
+      setCompletions(prev => prev.filter(c => !(c.habit_id === habitId && c.completion_date === localDateStr)));
+    }
+
     try {
-      await toggleHabitCompletion(userId, habitId, selectedDate, completed);
-      
-      // Trigger haptic feedback if available
+      await toggleServiceHabitCompletion(userId, habitId, selectedDate, targetCompletedState);
       if (window.navigator.vibrate) {
         window.navigator.vibrate(50);
       }
-
-      // Optimistically update UI
-      if (completed) {
-        setCompletions(prev => [...prev, {
-          id: crypto.randomUUID(),
-          user_id: userId,
-          habit_id: habitId,
-          completion_date: getLocalDateString(selectedDate)
-        }]);
-      } else {
-        setCompletions(prev => prev.filter(c => c.habit_id !== habitId));
-      }
     } catch (err) {
       console.error('Error toggling habit:', err);
+      if (userId) await loadDashboardData(selectedDate, userId); 
     }
   };
 
@@ -144,7 +134,7 @@ export default function DashboardPage() {
   const totalHabits = habits.length;
   const completionRate = totalHabits ? Math.round((completedCount / totalHabits) * 100) : 0;
 
-  if (loading) {
+  if (loading && !initialLoadComplete) { 
     return <HabitsSkeleton />;
   }
 
@@ -152,29 +142,25 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Pull to Refresh Indicator */}
       <AnimatePresence>
-        {pullDistance > 0 && (
+        {(pullDistance > 0 || (loading && initialLoadComplete)) && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-0 left-0 right-0 flex justify-center py-2 bg-background/80 backdrop-blur-sm z-50"
+            className="fixed top-0 left-0 right-0 flex justify-center py-2 bg-background/80 backdrop-blur-sm z-50 items-center"
           >
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <ArrowDownCircle
-                className="h-4 w-4"
-                style={{
-                  transform: `rotate(${progress * 3.6}deg)`
-                }}
-              />
-              {isRefreshing ? 'Refreshing...' : 'Pull to refresh'}
+              {loading && initialLoadComplete ? 
+                <Loader2 className="h-4 w-4 animate-spin" /> :
+                <ArrowDownCircle className="h-4 w-4" style={{ transform: `rotate(${progress * 3.6}deg)` }}/>
+              }
+              {isRefreshing ? 'Refreshing...' : (loading && initialLoadComplete) ? 'Loading...': 'Pull to refresh'}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Welcome Section */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">
           {isToday ? 'Welcome Back!' : 'Habit History'}
@@ -182,7 +168,6 @@ export default function DashboardPage() {
         <p className="text-muted-foreground text-sm">{email}</p>
       </div>
 
-      {/* Date Navigation */}
       <div className="flex items-center justify-between bg-card rounded-lg border p-4">
         <button
           onClick={() => handleDateChange(-1)}
@@ -229,7 +214,6 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* Back to Today Button */}
       {!isToday && (
         <Button
           variant="outline"
@@ -240,10 +224,8 @@ export default function DashboardPage() {
         </Button>
       )}
 
-      {/* Animated Content Section */}
       <HabitCard swipeProgress={swipeProgress} selectedDate={selectedDate}>
         <div className="space-y-6">
-          {/* Progress Stats */}
           <div className="bg-card rounded-lg border p-6">
             <h2 className="font-semibold mb-4">
               {isToday ? "Today's Progress" : 'Progress'}
@@ -264,22 +246,24 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Habits List */}
           <div>
             <h2 className="font-semibold mb-4">
               {isToday ? "Today's Habits" : 'Habits'}
             </h2>
+            {habits.length === 0 && !loading && (
+                 <p className="text-sm text-center text-muted-foreground py-4">No habits found for this day.</p>
+            )}
             <div className="space-y-2">
-              {habits.map((habit) => {
-                const completed = isHabitCompleted(habit.id);
+              {habits.map((habit: ServiceHabitType) => {
+                const completed = isHabitCompleted(habit.id); 
                 return (
                   <motion.button
-                    key={habit.id}
-                    onClick={() => handleToggleHabit(habit.id)}
+                    key={habit.id} 
+                    onClick={() => handleToggleHabit(habit.id)} 
                     className="w-full flex items-center justify-between p-4 rounded-lg bg-card border hover:bg-accent transition-colors"
                     whileTap={{ scale: 0.98 }}
                   >
-                    <span className="font-medium">{habit.name}</span>
+                    <span className="font-medium truncate" title={habit.name}>{habit.name}</span>
                     <motion.div
                       initial={false}
                       animate={completed ? { scale: [0.8, 1.2, 1] } : { scale: 1 }}

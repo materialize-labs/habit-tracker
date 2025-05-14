@@ -1,38 +1,46 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, addWeeks, addMonths } from 'date-fns';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { getHabits, getHabitCompletionsForDateRange } from '@/services/habitService';
+import {
+  getHabitsForUser,
+  getHabitCompletionsForDateRange,
+  type Habit as ServiceHabitType,
+  type HabitCompletion as ServiceCompletionType
+} from '@/services/habitService';
 import { supabase } from '@/lib/supabaseClient';
 
 type ViewType = 'week' | 'month';
-type HabitStats = { id: number; name: string; count: number };
+type HabitStats = { id: string; name: string; count: number };
 
 export default function StatsPage() {
   const [viewType, setViewType] = useState<ViewType>('week');
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [stats, setStats] = useState<HabitStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  const dateRange = viewType === 'week' 
-    ? {
-        start: startOfWeek(currentDate),
-        end: endOfWeek(currentDate),
-        format: (date: Date) => {
-          const start = startOfWeek(date);
-          const end = endOfWeek(date);
-          return `${format(start, 'MMM d')} - ${format(end, 'MMM d')}`;
-        },
-      }
-    : {
-        start: startOfMonth(currentDate),
-        end: endOfMonth(currentDate),
-        format: (date: Date) => format(date, 'MMMM yyyy'),
-      };
+  const dateRange = useMemo(() => {
+    return viewType === 'week' 
+      ? {
+          start: startOfWeek(currentDate),
+          end: endOfWeek(currentDate),
+          formatStr: (date: Date) => {
+            const start = startOfWeek(date);
+            const end = endOfWeek(date);
+            return `${format(start, 'MMM d')} - ${format(end, 'MMM d')}`;
+          },
+        }
+      : {
+          start: startOfMonth(currentDate),
+          end: endOfMonth(currentDate),
+          formatStr: (date: Date) => format(date, 'MMMM yyyy'),
+        };
+  }, [currentDate, viewType]);
 
   const navigate = (direction: 'prev' | 'next') => {
     if (viewType === 'week') {
@@ -43,41 +51,84 @@ export default function StatsPage() {
   };
 
   useEffect(() => {
-    async function loadStats() {
+    async function fetchUser() {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      setUserId(user?.id ?? null);
+    }
+    fetchUser();
+  }, []);
+
+  useEffect(() => {
+    async function loadStatsData() {
+      if (!userId) {
+        setStats([]);
+        setLoading(false);
+        return;
+      }
+      
+      setLoading(true);
+      setError(null);
       try {
-        setLoading(true);
-        setError(null);
-
-        // Get current user
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('User not found');
-
-        // Get all habits and completions for the date range
-        const [habits, completions] = await Promise.all([
-          getHabits(),
-          getHabitCompletionsForDateRange(user.id, dateRange.start, dateRange.end)
+        const [userHabitsData, completionsData] = await Promise.all([
+          getHabitsForUser(userId),
+          getHabitCompletionsForDateRange(userId, dateRange.start, dateRange.end)
         ]);
+        
+        const userHabits: ServiceHabitType[] = Array.isArray(userHabitsData) ? userHabitsData : [];
+        const completions: ServiceCompletionType[] = Array.isArray(completionsData) ? completionsData : [];
 
-        // Calculate completion counts for each habit
-        const habitStats = habits.map(habit => {
-          const count = completions.filter(c => c.habit_id === habit.id).length;
-          return { id: habit.id, name: habit.name, count };
+        const calculatedStats: HabitStats[] = userHabits.map((habit: ServiceHabitType) => {
+          const count = completions.filter((c: ServiceCompletionType) => String(c.habit_id) === String(habit.id)).length;
+          return { id: String(habit.id), name: habit.name, count };
         });
-
-        setStats(habitStats);
+        setStats(calculatedStats);
       } catch (err) {
+        console.error("Error loading stats:", err);
         setError(err instanceof Error ? err.message : 'Failed to load statistics');
+        setStats([]);
       } finally {
         setLoading(false);
       }
     }
 
-    loadStats();
+    loadStatsData();
+  }, [userId, dateRange]);
+
+  const canNavigateNext = useMemo(() => {
+    return viewType === 'week' 
+      ? endOfWeek(currentDate) < endOfWeek(new Date())
+      : endOfMonth(currentDate) < endOfMonth(new Date());
   }, [currentDate, viewType]);
 
-  const canNavigateNext = viewType === 'week' 
-    ? endOfWeek(currentDate) < new Date()
-    : endOfMonth(currentDate) < new Date();
+  let content;
+  if (loading) {
+    content = (
+      <div className="flex items-center justify-center py-10">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  } else if (error) {
+    content = <p className="text-destructive text-center py-10">Error: {error}</p>;
+  } else if (!userId && !loading) {
+    content = <p className="text-muted-foreground text-center py-10">Please log in to view stats.</p>;
+  } else if (stats.length === 0) {
+    content = <p className="text-muted-foreground text-center py-10">No habit data available for this period.</p>;
+  } else {
+    content = (
+      <div className="space-y-2">
+        {stats.map(habit => (
+          <div
+            key={habit.id}
+            className="flex justify-between items-center py-2 border-b last:border-0"
+          >
+            <span className="truncate" title={habit.name}>{habit.name}</span>
+            <span className="font-medium">{habit.count}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -91,20 +142,18 @@ export default function StatsPage() {
       <Card>
         <CardHeader className="space-y-4">
           <div className="flex justify-between items-center">
-            <CardTitle>{dateRange.format(currentDate)}</CardTitle>
+            <CardTitle>{dateRange.formatStr(currentDate)}</CardTitle>
             <div className="flex gap-2">
               <Button
-                variant="outline"
+                variant={viewType === 'week' ? "default" : "outline"}
                 size="sm"
-                className={viewType === 'week' ? 'bg-primary text-primary-foreground' : ''}
                 onClick={() => setViewType('week')}
               >
                 Week
               </Button>
               <Button
-                variant="outline"
+                variant={viewType === 'month' ? "default" : "outline"}
                 size="sm"
-                className={viewType === 'month' ? 'bg-primary text-primary-foreground' : ''}
                 onClick={() => setViewType('month')}
               >
                 Month
@@ -119,34 +168,14 @@ export default function StatsPage() {
               variant="ghost" 
               size="icon" 
               onClick={() => navigate('next')}
-              disabled={!canNavigateNext}
+              disabled={!canNavigateNext || loading}
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <div className="space-y-2">
-              {[...Array(12)].map((_, i) => (
-                <div key={i} className="h-8 bg-muted animate-pulse rounded" />
-              ))}
-            </div>
-          ) : error ? (
-            <p className="text-destructive text-center py-4">{error}</p>
-          ) : (
-            <div className="space-y-2">
-              {stats.map(habit => (
-                <div
-                  key={habit.id}
-                  className="flex justify-between items-center py-2 border-b last:border-0"
-                >
-                  <span>{habit.name}</span>
-                  <span className="font-medium">{habit.count}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          {content}
         </CardContent>
       </Card>
     </div>
